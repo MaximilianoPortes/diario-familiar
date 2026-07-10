@@ -1,0 +1,16 @@
+{
+  "name": "Diario Familiar",
+  "short_name": "Diario",
+  "description": "Diario familiar de Maxi y Carmen",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f3ff",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

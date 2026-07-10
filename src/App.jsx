@@ -460,25 +460,27 @@ function AddReward({ onAdd }) {
 
 export default function App() {
   const [data, setData] = useState(loadData);
-  const [profileId, setProfileId] = useState("maxi");
-  const [tab, setTab] = useState("today");
+  const [activeProfile, setActiveProfile] = useState("maxi");
+  const [activeTab, setActiveTab] = useState("hoy");
   const today = getDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [showSaved, setShowSaved] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => { saveData(data); }, [data]);
 
-  const profile = PROFILES.find((p) => p.id === profileId);
-  const entryKey = `${profileId}:${selectedDate}`;
+  const profile = PROFILES.find((p) => p.id === activeProfile);
+  const entryKey = `${activeProfile}:${selectedDate}`;
   const entry = data.entries[entryKey] || { score: 0, habits: [], lines: ["", "", ""] };
-  const habits = data.habits[profileId] || [];
-  const rewards = data.rewards[profileId] || [];
+  const habits = data.habits[activeProfile] || [];
+  const rewards = data.rewards[activeProfile] || [];
 
-  const points = useMemo(() => {
+  const totalPoints = useMemo(() => {
     let pts = 0;
     Object.keys(data.entries).forEach((k) => {
-      if (k.startsWith(profileId + ":")) {
+      if (k.startsWith(activeProfile + ":")) {
         const e = data.entries[k];
         pts += (e.score || 0) * 2;
         pts += ((e.habits || []).length) * 2;
@@ -487,7 +489,7 @@ export default function App() {
     });
     rewards.forEach((r) => { if (r.claimed) pts -= r.cost; });
     return pts;
-  }, [data, profileId, rewards]);s, rewards, activeProfile]);
+  }, [data, activeProfile, rewards]);
 
   const updateEntry = useCallback((updates) => {
     setData((prev) => ({
