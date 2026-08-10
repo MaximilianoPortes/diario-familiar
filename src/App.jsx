@@ -54,6 +54,10 @@ const DEFAULT_REWARDS = {
   ],
 };
 
+const DEFAULT_REMINDERS = [
+  { id: "rec1", text: "Gimnasio del Pisa del tirón, bajo andando", emoji: "🏋️", done: false },
+];
+
 const STAR_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"];
 const STAR_LABELS = ["Malísimo", "Regular", "Bien", "Genial", "¡Increíble!"];
 const CALENDAR_COLORS = ["#fecaca", "#fed7aa", "#fef08a", "#bbf7d0", "#c7d2fe", "#e5e7eb"];
@@ -82,6 +86,7 @@ function loadData() {
         entries: parsed.entries || {},
         rewards: parsed.rewards || JSON.parse(JSON.stringify(DEFAULT_REWARDS)),
         habits: parsed.habits || JSON.parse(JSON.stringify(DEFAULT_HABITS)),
+        reminders: parsed.reminders || JSON.parse(JSON.stringify(DEFAULT_REMINDERS)),
       };
     }
   } catch (e) {
@@ -91,6 +96,7 @@ function loadData() {
     entries: {},
     rewards: JSON.parse(JSON.stringify(DEFAULT_REWARDS)),
     habits: JSON.parse(JSON.stringify(DEFAULT_HABITS)),
+    reminders: JSON.parse(JSON.stringify(DEFAULT_REMINDERS)),
   };
 }
 
@@ -162,6 +168,66 @@ function HabitChecklist({ habits, checked, onChange }) {
           </label>
         );
       })}
+    </div>
+  );
+}
+
+function Reminders({ reminders, onUpdate }) {
+  const [newText, setNewText] = useState("");
+
+  const addReminder = () => {
+    if (newText.trim()) {
+      onUpdate([...reminders, { id: `rec${Date.now()}`, text: newText.trim(), emoji: "📌", done: false }]);
+      setNewText("");
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {reminders.map((r) => (
+        <div
+          key={r.id}
+          className={`flex items-center gap-3 p-3 rounded-xl transition-all ${r.done ? "bg-gray-50 border border-transparent" : "bg-amber-50 border border-amber-200"}`}
+        >
+          <input
+            type="checkbox"
+            checked={r.done}
+            onChange={() => onUpdate(reminders.map((x) => (x.id === r.id ? { ...x, done: !x.done } : x)))}
+            className="w-5 h-5 rounded accent-amber-500"
+          />
+          <span className="text-xl">{r.emoji}</span>
+          <span className={`text-base flex-1 ${r.done ? "line-through text-gray-400" : "text-gray-700"}`}>
+            {r.text}
+          </span>
+          <button
+            onClick={() => onUpdate(reminders.filter((x) => x.id !== r.id))}
+            className="text-red-400 hover:text-red-600 text-lg px-2 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      {reminders.length === 0 && (
+        <p className="text-gray-400 text-sm text-center py-3">No hay recordatorios pendientes ✨</p>
+      )}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="Nuevo recordatorio..."
+          className="flex-1 p-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none text-gray-700 placeholder-gray-300 text-sm"
+          maxLength={100}
+          onKeyDown={(e) => { if (e.key === "Enter") addReminder(); }}
+        />
+        <button
+          onClick={addReminder}
+          disabled={!newText.trim()}
+          className="px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
@@ -460,8 +526,10 @@ function AddReward({ onAdd }) {
 
 export default function App() {
   const [data, setData] = useState(loadData);
-  const [profileId, setProfileId] = useState("maxi");
-  const [tab, setTab] = useState("today");
+  const [activeProfile, setActiveProfile] = useState("maxi");
+  const [activeTab, setActiveTab] = useState("hoy");
+  const [showSaved, setShowSaved] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const today = getDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -469,16 +537,16 @@ export default function App() {
 
   useEffect(() => { saveData(data); }, [data]);
 
-  const profile = PROFILES.find((p) => p.id === profileId);
-  const entryKey = `${profileId}:${selectedDate}`;
+  const profile = PROFILES.find((p) => p.id === activeProfile);
+  const entryKey = `${activeProfile}:${selectedDate}`;
   const entry = data.entries[entryKey] || { score: 0, habits: [], lines: ["", "", ""] };
-  const habits = data.habits[profileId] || [];
-  const rewards = data.rewards[profileId] || [];
+  const habits = data.habits[activeProfile] || [];
+  const rewards = data.rewards[activeProfile] || [];
 
-  const points = useMemo(() => {
+  const totalPoints = useMemo(() => {
     let pts = 0;
     Object.keys(data.entries).forEach((k) => {
-      if (k.startsWith(profileId + ":")) {
+      if (k.startsWith(activeProfile + ":")) {
         const e = data.entries[k];
         pts += (e.score || 0) * 2;
         pts += ((e.habits || []).length) * 2;
@@ -487,7 +555,7 @@ export default function App() {
     });
     rewards.forEach((r) => { if (r.claimed) pts -= r.cost; });
     return pts;
-  }, [data, profileId, rewards]);s, rewards, activeProfile]);
+  }, [data, rewards, activeProfile]);
 
   const updateEntry = useCallback((updates) => {
     setData((prev) => ({
@@ -599,6 +667,18 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              {/* Recordatorios */}
+              <section className="bg-white rounded-2xl p-5 shadow-sm border border-amber-200">
+                <h3 className="font-bold text-gray-700 mb-3 text-base">📌 Recordatorios</h3>
+                <Reminders
+                  reminders={data.reminders || []}
+                  onUpdate={(reminders) => {
+                    setData((prev) => ({ ...prev, reminders }));
+                    saveAnimation();
+                  }}
+                />
+              </section>
 
               {/* Score */}
               <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
